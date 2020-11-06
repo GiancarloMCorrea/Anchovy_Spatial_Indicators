@@ -1,3 +1,5 @@
+# CALCULAR INDICES ESPACIALES: VER MORON ET AL (2019)
+# GUARDAR CARPETAS CREADAS DEL SCRIPT DEL MODELO espacial EN UNA CARPETA LLAMADA 'surveys'
 #  ------------------------------------------------------------------------
 mainDir = "C:/Users/moroncog/Documents/GitHub/AnchovySpatialIndicators"
 setwd(dir = mainDir)  
@@ -12,13 +14,13 @@ library('raster')
 source("Spatial_indicators_functions.R")
 source("distCoast.R")
 
-infTh = 0.05
+infTh = 0.05 # No cambiar, definido en el paper
 
 listSurveys = list.dirs(path = "surveys")
 listSurveys = listSurveys[-1]
 nameSurvey = sub(pattern = "surveys/", replacement = "", x = listSurveys)
 
-std_level = 4.86 # calculado con thr level de 0.05
+std_level = 4.86 # calculado con thr level de 0.05. Viene de un promedio de todos los cruceros.
 
 levelhot = numeric(length(listSurveys))
 areahot = numeric(length(listSurveys))
@@ -53,26 +55,28 @@ for(i in seq_along(listSurveys)){
   # limites siempre los mismos a no ser que cambie el area de prediccion
   rc = cut(rr, breaks = c(Level, maxVal))
   pols = rasterToPolygons(rc, dissolve=T)
-  areahot[i] = pols@polygons[[1]]@area*3600
-  npatchhot[i] = length(pols@polygons[[1]]@Polygons)
+  areahot[i] = pols@polygons[[1]]@area*3600 # area de agregacion 
+  npatchhot[i] = length(pols@polygons[[1]]@Polygons) # numero de areas de agregacion
 
   rcstd = cut(rr, breaks = c(std_level, maxVal))
   polsstd = rasterToPolygons(rcstd, dissolve=T)
-  areahot_std[i] = polsstd@polygons[[1]]@area*3600
-  npatchhot_std[i] = length(polsstd@polygons[[1]]@Polygons)
+  areahot_std[i] = polsstd@polygons[[1]]@area*3600 # area de agregacion (std) = estandarizado por el limite unico
+  npatchhot_std[i] = length(polsstd@polygons[[1]]@Polygons) # numero de area de agregacion (std)
   
     
   rc2 = cut(rr, breaks = c(infTh, maxVal))
   pols2 = rasterToPolygons(rc2, dissolve=T)
-  arealow[i] = pols2@polygons[[1]]@area*3600
-  npatchlow[i] = length(pols2@polygons[[1]]@Polygons)
+  arealow[i] = pols2@polygons[[1]]@area*3600 # Area total de distribucion
+  npatchlow[i] = length(pols2@polygons[[1]]@Polygons) # Numero de parches en los cuales la anchoveta se ha distribuido
     
   pos = which(lonlat$var >= infTh)
-  saplus[i] = mean(lonlat$var[pos])
-  satot[i] = sum(lonlat$var[pos])
+  saplus[i] = mean(lonlat$var[pos]) # ppromedio de valores predichos
+  satot[i] = sum(lonlat$var[pos]) # suma de valores predichos
     
   plot.new()
-  isotropy[i] = cgi(x = lonlat$lon[pos], y = lonlat$lat[pos], z = lonlat$var[pos])$Iso
+  isotropy[i] = cgi(x = lonlat$lon[pos], y = lonlat$lat[pos], z = lonlat$var[pos])$Iso # indicador de elongacion
+  # 0 = cuando se acerca un modelo
+  # 1 = se aproxima a un circulo
   
   tmp_dc = numeric(length(pols@polygons[[1]]@Polygons))
   tmp_areas = numeric(length(pols@polygons[[1]]@Polygons))
@@ -82,7 +86,7 @@ for(i in seq_along(listSurveys)){
                        lat = pols@polygons[[1]]@Polygons[[k]]@coords[,2]))
   }
   
-  hotpatch_dc[i] = sum(tmp_dc*tmp_areas)/sum(tmp_areas)
+  hotpatch_dc[i] = sum(tmp_dc*tmp_areas)/sum(tmp_areas) # Centro de agregacion en funcion a la distancia a costa.
 
   
   tmpstd_dc = numeric(length(polsstd@polygons[[1]]@Polygons))
@@ -93,7 +97,7 @@ for(i in seq_along(listSurveys)){
                                lat = polsstd@polygons[[1]]@Polygons[[k]]@coords[,2]))
   }
   
-  hotpatchstd_dc[i] = sum(tmpstd_dc*tmpstd_areas)/sum(tmpstd_areas)
+  hotpatchstd_dc[i] = sum(tmpstd_dc*tmpstd_areas)/sum(tmpstd_areas) # Centro de agregacion en funcion a la distancia a costa estandarizada.
   
     
   print(i)

@@ -1,5 +1,7 @@
 #  ------------------------------------------------------------------------
 ### Modelos no gausiano lognormal
+
+# Instalar paquetes:
 require(INLA)
 require(maps)
 require(fields)
@@ -12,8 +14,8 @@ require(geoR)
 
 rm(list = ls())
 borders = read.csv("borders3.csv")
-listSurveys = list.files(path = "data")
-mainDir = "C:/Users/moroncog/Documents/GitHub/AnchovySpatialIndicators"
+listSurveys = list.files(path = "data") # Crear una carpeta que se llame 'data' y guarde las bitacoras acusticas
+mainDir = "C:/Users/moroncog/Documents/GitHub/AnchovySpatialIndicators" # Fijar directorio de trabajo
 
 for(i in seq_along(listSurveys)){
 
@@ -24,7 +26,7 @@ selectSurvey = listSurveys[i]
 dataca = read.csv(file.path("data", selectSurvey))
 
 nameSurvey = sub(pattern = ".csv", replacement = "", x = selectSurvey)
-nameSurvey = sub(pattern = "Acoustic_Data_", replacement = "", x = nameSurvey)
+nameSurvey = sub(pattern = "Acoustic_Data_", replacement = "", x = nameSurvey) # Llamar asi a bitacoras acusticas (e.g. Acoustic_Data_180204.csv)
 outNameSurvey = paste0("Cr", nameSurvey)
 
 dir.create(outNameSurvey, showWarnings = FALSE)
@@ -33,7 +35,7 @@ setwd(file.path(mainDir, outNameSurvey))
 ## Cargando los datos
 names(dataca) = tolower(names(dataca))
 
-dataca = dataca[, c("lon_m", "lat_m", "ancp")]
+dataca = dataca[, c("lon_m", "lat_m", "ancp")] # Tienen que haber 3 columnas con estos nombres
 dataca = dataca[complete.cases(dataca),]
 dataca = subset(dataca, subset = dataca$lat_m <= -4.7 & dataca$lat_m >= -16)
 names(dataca) = c("lon_m", "lat_m", "anc")
@@ -69,7 +71,7 @@ prdomain = inla.nonconvex.hull(as.matrix(coords),
 
 #malla triangulada en 2d
 mesh = inla.mesh.2d(loc=coords,boundary=prdomain, min.angle = c(20,20),
-                    max.edge=c(0.5,5), cutoff=5/60, offset=c(0.6,0.6))
+                    max.edge=c(0.5,5), cutoff=5/60, offset=c(0.6,0.6)) # cutoff define el lado del triangulo. 
 
 spde =  inla.spde2.matern(mesh, alpha=2)  #modelo spd2 para funcion matern
 
@@ -98,11 +100,14 @@ stk.dat = inla.stack(data=list(y=dataca$anc),A=list(A,1), tag='dat',
 #construyendo los modelos
   ## primer modelo - sin covariables
 
-f.lat = y ~ 0 + Intercept + f(i, model=spde)
+f.lat = y ~ 0 + Intercept + f(i, model=spde) # Sin covariables
 
+# ESTE ES EL MODELO PRINCIPAL!:
 r.lat = inla(f.lat, family='lognormal', control.compute=list(dic=TRUE),
             data=inla.stack.data(stk.dat),
             control.predictor=list(A=inla.stack.A(stk.dat), compute=TRUE))
+
+# TODO LO QUE VIENE AQUI ES GUARDAR RESULTADOS DEL MODELO
 
 write.table(r.lat$dic$dic, paste0(outNameSurvey, "-DIC.txt"), row.names = F, col.names = "DIC")
 write.csv(r.lat$summary.fixed, paste0(outNameSurvey, "-Intercept.csv"))
@@ -135,11 +140,13 @@ plot.default(r.f$marginals.range.nominal[[1]], type='l',
               xlab='Practical range', ylab='Density')
 dev.off()
 
-## Prediccion del campo aleatorio
-gridsize = 1
+# PREDDICIONES DE LOS RESULTADOS: -----------------------------------------
 
-  j = 1
-  stepsize = j/60 #grilla 3mn
+## Prediccion del campo aleatorio
+gridsize = 1 # Tamano de grilla (en mn2)
+
+  j = gridsize
+  stepsize = j/60 
   nxy = round(c(diff(range(borders[,1])), diff(range(borders[,2])))/stepsize)
   
     #Projeccion
@@ -151,12 +158,10 @@ gridsize = 1
   
     
     #inside the borders 
-  #esto lo puedes cambiar en funcion a la varianza
-  
+
   xy.in = inout(projgrid$lattice$loc,
                       cbind(borders[,1], borders[,2]))
-  
-  xmean[!xy.in] = xsd[!xy.in] = NA  #doy valores de N.A fuera del borde
+    xmean[!xy.in] = xsd[!xy.in] = NA  #doy valores de N.A fuera del borde
 
   write.csv(xmean, paste0(outNameSurvey,"_", j, "mn", "-xmean.csv"), row.names = F)
   write.csv(xsd, paste0(outNameSurvey,"_", j, "mn", "-xsd.csv"), row.names = F)
@@ -181,6 +186,7 @@ gridsize = 1
   write.csv(predict, paste0(outNameSurvey,"_", j, "mn", "-predict_raw.csv"), row.names = F)
   write.csv(varianza, paste0(outNameSurvey,"_", j, "mn", "-variance_raw.csv"), row.names = F)
   
+  # PREPARAR LOS DATOS PARA HACER FIGURA PUBLICADO
   predict[which(predict < 0)] = 0
   ztemp = predict * 10
   maxi = round(max(ztemp, na.rm = T))
